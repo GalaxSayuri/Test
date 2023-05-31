@@ -1,81 +1,113 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <title>My First AR Web App</title>
-    <style>
-      body {
-        margin: 0;
-        overflow: hidden;
-      }
-      #scene {
-        position: absolute;
-        top: 0;
-        left: 0;
-      }
-    </style>
-    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
-    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
-  </head>
-  <body>
-    <a-scene
-      id="scene"
-      vr-mode-ui="enabled: false"
-      renderer="logarithmicDepthBuffer: true;"
-      embedded
-      arjs="sourceType: webcam; debugUIEnabled: false;"
-    >
-      <a-camera
-        id="camera"
-        raycaster="objects: .clickable;"
-        cursor="rayOrigin: mouse; fuse: false"
-      >
-        <a-entity
-          id="reticle"
-          position="0 0 -2"
-          geometry="primitive: ring; radiusInner: 0.02; radiusOuter: 0.03"
-          material="color: red; shader: flat"
-        >
-        </a-entity>
-      </a-camera>
-      <a-entity
-        id="animated-model"
-        position="0 0 -2"
-        scale="0.05 0.05 0.05"
-        gltf-model="https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF-Binary/Duck.glb"
-        class="clickable"
-      ></a-entity>
-    </a-scene>
-    <script>
-      var model = document.querySelector("#animated-model");
-      var reticle = document.querySelector("#reticle");
+<head>
+  <title>My First AR Web App</title>
+  <style>
+    body { margin: 0; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <script src="https://threejs.org/build/three.js"></script>
+  <script>
+    var scene, camera, renderer, model, reticle;
+    var hitTestSource = null;
+    var hitTestSourceRequested = false;
 
-      model.addEventListener("click", function () {
-        var scale = model.getAttribute("scale");
-        if (scale.x === 0.05) {
-          model.setAttribute("scale", { x: 0.1, y: 0.1, z: 0.1 });
-        } else {
-          model.setAttribute("scale", { x: 0.05, y: 0.05, z: 0.05 });
+    init();
+    animate();
+
+    function init() {
+      scene = new THREE.Scene();
+
+      camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
+
+      reticle = new THREE.Mesh(
+        new THREE.RingBufferGeometry(0.02, 0.04, 32),
+        new THREE.MeshBasicMaterial()
+      );
+      
+      reticle.matrixAutoUpdate = false;
+      reticle.visible = false;
+      scene.add(reticle);
+
+      model = new THREE.Mesh(
+        new THREE.BoxBufferGeometry(0.1, 0.1, 0.1),
+        new THREE.MeshNormalMaterial()
+      );
+
+      model.position.set(0, 0, -2);
+      scene.add(model);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.xr.enabled = true;
+      document.body.appendChild(renderer.domElement);
+
+      document.body.onclick = function() {
+        if (reticle.visible) {
+          model.position.setFromMatrixPosition(reticle.matrix);
+        }
+      };
+
+      navigator.xr.isSessionSupported('immersive-ar').then(function(supported) {
+        var enterButton = document.createElement('button');
+        enterButton.textContent = 'Enter AR';
+        enterButton.style.display = supported ? 'block' : 'none';
+
+        document.body.appendChild(enterButton);
+        enterButton.onclick = onRequestSession;
+
+        function onRequestSession() {
+          navigator.xr.requestSession('immersive-ar', {
+            optionalFeatures: ['dom-overlay'],
+            domOverlay: {root: document.body}
+          }).then(onSessionStarted);
         }
       });
+    }
 
-      var sceneEl = document.querySelector("a-scene");
-      sceneEl.addEventListener("click", function (evt) {
-        var pos = reticle.getAttribute("position");
-        model.setAttribute("position", pos);
-      });
+    function onSessionStarted(session) {
+      renderer.xr.setSession(session);
 
-      if (navigator.xr) {
-        navigator.xr.addEventListener('sessionstart', function () {
-          reticle.setAttribute('visible', 'true');
+      session.addEventListener('end', onSessionEnded);
+
+      if (!hitTestSourceRequested) {
+        session.requestReferenceSpace('viewer').then(function() {
+          session.requestHitTestSource().then(function(source) {
+            hitTestSource = source;
+          });
         });
-        navigator.xr.addEventListener('sessionend', function () {
-          reticle.setAttribute('visible', 'false');
-        });
+
+        hitTestSourceRequested = true;
       }
-    </script>
+    }
+
+    function onSessionEnded() {
+      hitTestSourceRequested = false;
+      hitTestSource = null;
+    }
+
+    function animate() {
+      renderer.setAnimationLoop(render);
+    }
+
+    function render(timestamp, xrframe) {
+      if (hitTestSource && xrframe) {
+        var hitTestResults = xrframe.getHitTestResults(hitTestSource);
+        if (hitTestResults.length) {
+          reticle.visible = true;
+          reticle.matrix.fromArray(
+            hitTestResults[0].getPose(renderer.xr.getReferenceSpace()).transform.matrix
+          );
+        } else {
+          reticle.visible = false;
+        }
+      }
+
+      renderer.render(scene, camera);
+    }
+  </script>
   </body>
 </html>
-
 
