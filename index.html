@@ -1,38 +1,81 @@
 <!DOCTYPE html>
 <html>
-<head>
-    <title>AR2</title>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>My First AR Web App</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+      }
+      #scene {
+        position: absolute;
+        top: 0;
+        left: 0;
+      }
+    </style>
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
-    <script src="https://jeromeetienne.github.io/AR.js/aframe/build/aframe-ar.js"></script>
-</head>
-<body style="margin : 0px; overflow: hidden;">
-    <a-scene embedded arjs='sourceType: webcam; debugUIEnabled: false;'>
-        <a-marker preset="hiro">
-            <a-entity 
-                id="animated-model" 
-                position="0 0 0" 
-                scale="0.05 0.05 0.05" 
-                gltf-model="https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF-Binary/Duck.glb"
-                animation-mixer
-            ></a-entity>
-        </a-marker>
-        <a-entity camera></a-entity>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
+  </head>
+  <body>
+    <a-scene
+      id="scene"
+      vr-mode-ui="enabled: false"
+      renderer="logarithmicDepthBuffer: true;"
+      embedded
+      arjs="sourceType: webcam; debugUIEnabled: false;"
+    >
+      <a-camera
+        id="camera"
+        raycaster="objects: .clickable;"
+        cursor="rayOrigin: mouse; fuse: false"
+      >
+        <a-entity
+          id="reticle"
+          position="0 0 -2"
+          geometry="primitive: ring; radiusInner: 0.02; radiusOuter: 0.03"
+          material="color: red; shader: flat"
+        >
+        </a-entity>
+      </a-camera>
+      <a-entity
+        id="animated-model"
+        position="0 0 -2"
+        scale="0.05 0.05 0.05"
+        gltf-model="https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF-Binary/Duck.glb"
+        class="clickable"
+      ></a-entity>
     </a-scene>
-
     <script>
-        window.onload = function() {
-            var model = document.querySelector('#animated-model');
+      var model = document.querySelector("#animated-model");
+      var reticle = document.querySelector("#reticle");
 
-            model.addEventListener('click', function() {
-                var scale = model.getAttribute('scale');
+      model.addEventListener("click", function () {
+        var scale = model.getAttribute("scale");
+        if (scale.x === 0.05) {
+          model.setAttribute("scale", { x: 0.1, y: 0.1, z: 0.1 });
+        } else {
+          model.setAttribute("scale", { x: 0.05, y: 0.05, z: 0.05 });
+        }
+      });
 
-                if (scale.x === 0.05) {
-                    model.setAttribute('scale', { x: 0.1, y: 0.1, z: 0.1 });
-                } else {
-                    model.setAttribute('scale', { x: 0.05, y: 0.05, z: 0.05 });
-                }
-            });
-        };
+      var sceneEl = document.querySelector("a-scene");
+      sceneEl.addEventListener("click", function (evt) {
+        var pos = reticle.getAttribute("position");
+        model.setAttribute("position", pos);
+      });
+
+      if (navigator.xr) {
+        navigator.xr.addEventListener('sessionstart', function () {
+          reticle.setAttribute('visible', 'true');
+        });
+        navigator.xr.addEventListener('sessionend', function () {
+          reticle.setAttribute('visible', 'false');
+        });
+      }
     </script>
-</body>
+  </body>
 </html>
+
+
